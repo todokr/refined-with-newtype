@@ -90,7 +90,7 @@ object RefineWithNewtypeModels {
   import eu.timepit.refined.api.Refined
   import eu.timepit.refined.boolean.{And, Not}
   import eu.timepit.refined.collection.{MaxSize, MinSize}
-  import eu.timepit.refined.numeric.NonNegative
+  import eu.timepit.refined.numeric.Interval
   import eu.timepit.refined.refineV
   import eu.timepit.refined.string.{MatchesRegex, StartsWith}
   import io.estatico.newtype.macros.newtype
@@ -104,7 +104,7 @@ object RefineWithNewtypeModels {
       Not[MatchesRegex["(?i)@admin"]]
 
   type EmailRule = MatchesRegex["""[a-z0-9]+@[a-z0-9]+\.[a-z0-9]{2,}"""]
-  type AgeRule = NonNegative
+  type AgeRule = Interval.OpenClosed[0, 200]
 
   type UserIdString = String Refined UserIdRule
   type EmailString = String Refined EmailRule
@@ -177,7 +177,7 @@ object WorkWithJsonExample extends App {
   import eu.timepit.refined.auto.autoUnwrap // F[T, P]をTにunwrapしてくれる
   import io.circe.parser.decode
   import CoercibleCirceCodecs._
-  import RefineWithNewtypeModels._
+  import RefineWithNewtypeModels.User
 
   Iterator
     .continually(Console.in.readLine())
@@ -190,7 +190,6 @@ object WorkWithJsonExample extends App {
           println(s"age: ${msg.age}")
           println(s"email: ${msg.email}")
       }
-
       println("*" * 30)
       println()
     }
@@ -213,7 +212,7 @@ object WorkWithDbExample extends App {
   import doobie.implicits._
   import doobie.refined.implicits._
   import cats.effect.{Blocker, ContextShift, IO}
-  import RefineWithNewtypeModels._
+  import RefineWithNewtypeModels.User
 
   implicit val cs: ContextShift[IO] = IO.contextShift(ExecutionContexts.synchronous)
   val tx: Transactor[IO] = Transactor.fromDriverManager[IO](
@@ -227,7 +226,7 @@ object WorkWithDbExample extends App {
   final class UserRepository(transactor: Transactor[IO]) {
     import CoercibleDoobieCodec._
 
-    def find(email: String): IO[Option[User]] = {
+    def findByEmail(email: String): IO[Option[User]] = {
       sql"""SELECT user_id,  email, age
            |FROM users
            |WHERE email=$email
@@ -239,7 +238,7 @@ object WorkWithDbExample extends App {
   }
 
   val repository = new UserRepository(tx)
-  val maybeUser = repository.find("tadokoro@example.com").unsafeRunSync()
+  val maybeUser = repository.findByEmail("tadokoro@example.com").unsafeRunSync()
   println(maybeUser)
 }
 
